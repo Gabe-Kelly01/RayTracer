@@ -9,6 +9,10 @@
 #include "Sphere.h"
 #include "easyppm.h"
 
+struct Ray {
+    Tuple point;
+    Tuple direction;
+};
 
 struct Node {
     Shape* shapePtr;
@@ -32,7 +36,7 @@ bool rayHitsPlane(const Tuple& rayOriginPoint, const Tuple& rayDirectionVector, 
         if (t < 0) {
             return false;
         }
-//        std::cout << t << std::endl;
+
         intersect = Intersection((Shape *) &plane, t);
         return true;
     }
@@ -70,11 +74,6 @@ bool rayHitsSphere( const Tuple& rayOriginPoint, const Tuple& rayDirectionVector
     }
 }
 
-// Function that (should have) determines if a pixel is in a shadow
-// Method:
-// dL = distance between ray origin and the light source or magnitude(lightPosition - shadowRayOrigin)
-// T = distance between ray origin and the point that shadowRayNormal hits or magnitude(shadowRayOrigin + shadowRayNormal * it.tHit)
-// if t < dL: pixel is in shadow of the light
 bool inShadow(Tuple& intersectPoint, Tuple& lightPoint, const std::vector<Node>& scene) {
     intersectPoint = intersectPoint + (0.001 * intersectPoint - lightPoint);
     Tuple intersectToLight = lightPoint - intersectPoint;
@@ -104,7 +103,7 @@ bool inShadow(Tuple& intersectPoint, Tuple& lightPoint, const std::vector<Node>&
     return t < dL;
 }
 
-Rgb Trace(Tuple& rayOrigin, Tuple& rayDirection, const std::vector<Node>& scene, const std::vector<LightSrc>& lSource) {
+Rgb Trace(Ray& ray, const std::vector<Node>& scene, const std::vector<LightSrc>& lSource) {
     // Declare intersection vector
     std::vector<Intersection> hits;
 
@@ -118,13 +117,13 @@ Rgb Trace(Tuple& rayOrigin, Tuple& rayDirection, const std::vector<Node>& scene,
         if (n.shapeType == 1) {
             auto obj = (Plane *) n.shapePtr;
 
-            if (rayHitsPlane(rayOrigin, rayDirection, *obj, it)) {
+            if (rayHitsPlane(ray.point, ray.direction, *obj, it)) {
                 hits.push_back(it);
             }
         } else {
             auto obj = (Sphere *) n.shapePtr;
 
-            if (rayHitsSphere(rayOrigin, rayDirection, *obj, it)) {
+            if (rayHitsSphere(ray.point, ray.direction, *obj, it)) {
                 hits.push_back(it);
             }
         }
@@ -134,7 +133,7 @@ Rgb Trace(Tuple& rayOrigin, Tuple& rayDirection, const std::vector<Node>& scene,
     sort(hits.begin(), hits.end(), sortByHT);
     Intersection minHit = hits[0];
     Shape curObj = *minHit.obj;
-    Tuple intersectPoint = rayOrigin + rayDirection * minHit.tHit;
+    Tuple intersectPoint = ray.point + ray.direction * minHit.tHit;
 
     // Calculate lighting from all light sources in the scene
     Tuple lightNormal;
@@ -145,7 +144,7 @@ Rgb Trace(Tuple& rayOrigin, Tuple& rayDirection, const std::vector<Node>& scene,
         lightNormal = intersectPoint - curObj.position;
         lightNormal.normalize();
 
-        if (rayDirection.dot(lightNormal) < 0) {
+        if (ray.direction.dot(lightNormal) < 0) {
             lightNormal.z *= -1;
         }
     }
@@ -161,14 +160,14 @@ Rgb Trace(Tuple& rayOrigin, Tuple& rayDirection, const std::vector<Node>& scene,
                          lightDiffuse(curObj.rDiff, curObj.position, lightNormal, src.iDiff, src.position);
             totalLight = totalLight +
                          lightSpecular(curObj.rSpec, curObj.position, lightNormal, src.iSpec, src.position,
-                                       rayOrigin, src.specExp);
+                                       ray.point, src.specExp);
         }
     }
 
     return totalLight;
 }
 
-void RayTrace(const std::vector<Node>& scene, const std::vector<LightSrc>& lSource) {
+void Render(const std::vector<Node>& scene, const std::vector<LightSrc>& lSource) {
     double front_clip = 6.0;
     double w = 6.0;
     double h = 6.0;
@@ -181,7 +180,7 @@ void RayTrace(const std::vector<Node>& scene, const std::vector<LightSrc>& lSour
     Tuple Y = Tuple(0, 1.0, 0);
     Tuple cameraPoint = Tuple(0,0,0, 1);
 
-    int image_pixel_size = 500;
+    int image_pixel_size = 750;
     PPM ray_trace_image = easyppm_create(image_pixel_size, image_pixel_size, IMAGETYPE_PPM);
     easyppm_clear(&ray_trace_image, easyppm_rgb(255, 255, 255));
 
@@ -191,9 +190,10 @@ void RayTrace(const std::vector<Node>& scene, const std::vector<LightSrc>& lSour
             Tuple P = b_left + s * X + t * Y;
 
             // Create normalized ray from origin to P
-            Tuple ray = P - cameraPoint;
-            ray.normalize();
-            Rgb totalLight = Trace(cameraPoint, ray, scene, lSource);
+            Tuple direction = P - cameraPoint;
+            direction.normalize();
+            Ray ray = {cameraPoint, direction};
+            Rgb totalLight = Trace(ray, scene, lSource);
 
             // Shade pixel
             int x = (int)((s * image_pixel_size / w) * (1.0 + std::numeric_limits<double>::epsilon()));
@@ -244,7 +244,7 @@ int main() {
 
     std::vector<LightSrc> lights {l1, l2};
 
-    RayTrace(scene, lights);
+    Render(scene, lights);
 
     return 0;
 }
