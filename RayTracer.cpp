@@ -32,7 +32,7 @@ bool rayHitsPlane(const Tuple& rayOriginPoint, const Tuple& rayDirectionVector, 
         if (t < 0) {
             return false;
         }
-        std::cout << t << std::endl;
+//        std::cout << t << std::endl;
         intersect = Intersection((Shape *) &plane, t);
         return true;
     }
@@ -75,35 +75,98 @@ bool rayHitsSphere( const Tuple& rayOriginPoint, const Tuple& rayDirectionVector
 // dL = distance between ray origin and the light source or magnitude(lightPosition - shadowRayOrigin)
 // T = distance between ray origin and the point that shadowRayNormal hits or magnitude(shadowRayOrigin + shadowRayNormal * it.tHit)
 // if t < dL: pixel is in shadow of the light
-bool inShadow(Tuple& shadowRayOrigin, Tuple& shadowRay, const std::vector<Node>& scene) {
+bool inShadow(Tuple& intersectPoint, Tuple& lightPoint, const std::vector<Node>& scene) {
+    intersectPoint = intersectPoint + (0.001 * intersectPoint - lightPoint);
+    Tuple intersectToLight = lightPoint - intersectPoint;
+    double dL = intersectToLight.magnitude();
+    intersectToLight.normalize();
+
+    Intersection it;
+    double t;
     for (Node n : scene) {
-        Intersection it;
-
         if (n.shapeType == 1) {
-            Plane* obj = (Plane *) n.shapePtr;
+            auto obj = (Plane *) n.shapePtr;
 
-            if (rayHitsPlane(shadowRayOrigin, shadowRay, *obj, it)) {
-                if (it.tHit < 0) {
-                    std::cout << "Plane t:" << it.tHit << std::endl;
-                }
-                return true;
+            if (rayHitsPlane(intersectPoint, intersectToLight, *obj, it)) {
+                t = it.tHit;
+                break;
             }
         } else {
-            Sphere* obj = (Sphere *) n.shapePtr;
+            auto obj = (Sphere *) n.shapePtr;
 
-            if (rayHitsSphere(shadowRayOrigin, shadowRay, *obj, it)) {
-                if (it.tHit < 0) {
-                    std::cout << "Sphere t:" << it.tHit << std::endl;
-                }
-                return true;
+            if (rayHitsSphere(intersectPoint, intersectToLight, *obj, it)) {
+                t = it.tHit;
+                break;
             }
         }
     }
 
-    return false;
+    return t < dL;
 }
 
+Rgb Trace(Tuple& rayOrigin, Tuple& rayDirection, const std::vector<Node>& scene, const std::vector<LightSrc>& lSource) {
+    // Declare intersection vector
+    std::vector<Intersection> hits;
 
+    // Iterate over every object in scene
+    for (Node n : scene) {
+        Intersection it;
+
+        // Cast node to correct shape
+        // shapeType == 1 -> plane
+        // shapeType == 2 -> sphere
+        if (n.shapeType == 1) {
+            auto obj = (Plane *) n.shapePtr;
+
+            if (rayHitsPlane(rayOrigin, rayDirection, *obj, it)) {
+                hits.push_back(it);
+            }
+        } else {
+            auto obj = (Sphere *) n.shapePtr;
+
+            if (rayHitsSphere(rayOrigin, rayDirection, *obj, it)) {
+                hits.push_back(it);
+            }
+        }
+    }
+
+    // Find the closest intersection, unpack shape and find point of intersection
+    sort(hits.begin(), hits.end(), sortByHT);
+    Intersection minHit = hits[0];
+    Shape curObj = *minHit.obj;
+    Tuple intersectPoint = rayOrigin + rayDirection * minHit.tHit;
+
+    // Calculate lighting from all light sources in the scene
+    Tuple lightNormal;
+    if (curObj.type == 1) {
+        lightNormal = Tuple(0, 0, -1);
+
+    } else {
+        lightNormal = intersectPoint - curObj.position;
+        lightNormal.normalize();
+
+        if (rayDirection.dot(lightNormal) < 0) {
+            lightNormal.z *= -1;
+        }
+    }
+
+
+    Rgb totalLight = Rgb();
+    for (LightSrc src : lSource) {
+        // Compute ambient light regardless, only compute specular and diffuse lighting if point is not in shadows
+        totalLight = totalLight + lightAmbient(curObj.rAmb, src.iAmb);
+        bool hasShadow = inShadow(intersectPoint, src.position, scene);
+        if (not hasShadow) {
+            totalLight = totalLight +
+                         lightDiffuse(curObj.rDiff, curObj.position, lightNormal, src.iDiff, src.position);
+            totalLight = totalLight +
+                         lightSpecular(curObj.rSpec, curObj.position, lightNormal, src.iSpec, src.position,
+                                       rayOrigin, src.specExp);
+        }
+    }
+
+    return totalLight;
+}
 
 void RayTrace(const std::vector<Node>& scene, const std::vector<LightSrc>& lSource) {
     double front_clip = 6.0;
@@ -118,7 +181,7 @@ void RayTrace(const std::vector<Node>& scene, const std::vector<LightSrc>& lSour
     Tuple Y = Tuple(0, 1.0, 0);
     Tuple cameraPoint = Tuple(0,0,0, 1);
 
-    int image_pixel_size = 300;
+    int image_pixel_size = 500;
     PPM ray_trace_image = easyppm_create(image_pixel_size, image_pixel_size, IMAGETYPE_PPM);
     easyppm_clear(&ray_trace_image, easyppm_rgb(255, 255, 255));
 
@@ -130,87 +193,9 @@ void RayTrace(const std::vector<Node>& scene, const std::vector<LightSrc>& lSour
             // Create normalized ray from origin to P
             Tuple ray = P - cameraPoint;
             ray.normalize();
+            Rgb totalLight = Trace(cameraPoint, ray, scene, lSource);
 
-            // Declare intersection vector
-            std::vector<Intersection> hits;
-
-            // Iterate over every object in scene
-            for (Node n : scene) {
-                Intersection it;
-
-                // Cast node to correct shape
-                // shapeType == 1 -> plane
-                // shapeType == 2 -> sphere
-                if (n.shapeType == 1) {
-                    Plane* obj = (Plane *) n.shapePtr;
-
-                    if (rayHitsPlane(cameraPoint, ray, *obj, it)) {
-                        hits.push_back(it);
-                    }
-                } else {
-                    //std::cout << "Foo" << std::endl;
-                    Sphere* obj = (Sphere *) n.shapePtr;
-
-                    if (rayHitsSphere(cameraPoint, ray, *obj, it)) {
-                        hits.push_back(it);
-                    }
-                }
-            }
-
-//            for (Node n : scene) {
-//                std::cout << n.shapeType << std::endl;
-//            }
-//            std::cout << "-------" << std::endl;
-
-
-            // Find the closest intersection, unpack shape and find point of intersection
-            sort(hits.begin(), hits.end(), sortByHT);
-            Intersection minHit = hits[0];
-            Shape curObj = *minHit.obj;
-            Tuple intersectPoint = cameraPoint + ray * minHit.tHit;
-
-            // Calculate lighting from all light sources in the scene
-            Tuple lightNormal;
-            if (curObj.type == 1) {
-                lightNormal = Tuple(0, 0, -1);
-            } else {
-                lightNormal = intersectPoint - curObj.position;
-                lightNormal.normalize();
-            }
-
-//          This was my attempt at making shadows work, couldn't track down exactly why this never worked.
-//          When used the entire image is shadowed i.e. ambient lighting is the only thing accounted for
-//          Wanted to leave this in so you could see my attempt and maybe explain what was wrong in my feedback.
-            Rgb totalLight = Rgb();
-            for (LightSrc src : lSource) {
-                // Handle shadows
-                // Compute new point at an offset from intersectionPoint in the direction of the light source to avoid self-intersection
-                Tuple shadowRay = src.position - intersectPoint;
-                Tuple shadowRayOrigin = intersectPoint + shadowRay;
-                bool hasShadow = inShadow(shadowRayOrigin, shadowRay, scene);
-
-                // Compute ambient light regardless, only compute specular and diffuse lighting if point is not in shadows
-                totalLight = totalLight + lightAmbient(curObj.rAmb, src.iAmb);
-                if (not hasShadow) {
-                    totalLight = totalLight +
-                                 lightDiffuse(curObj.rDiff, curObj.position, lightNormal, src.iDiff, src.position);
-                    totalLight = totalLight +
-                                 lightSpecular(curObj.rSpec, curObj.position, lightNormal, src.iSpec, src.position,
-                                               cameraPoint, src.specExp);
-//                    std::cout << "Working" << std::endl;
-                }
-            }
-
-//            Rgb totalLight = Rgb();
-//            for (LightSrc src : lSource) {
-//                // Compute ambient light regardless, only compute specular and diffuse lighting if point is not in shadows
-//                totalLight = totalLight + lightAmbient(curObj.rAmb, src.iAmb);
-//                totalLight = totalLight + lightDiffuse(curObj.rDiff, curObj.position, lightNormal, src.iDiff, src.position);
-//                totalLight = totalLight + lightSpecular(curObj.rSpec, curObj.position, lightNormal, src.iSpec, src.position,
-//                                               cameraPoint, src.specExp);
-//            }
-
-
+            // Shade pixel
             int x = (int)((s * image_pixel_size / w) * (1.0 + std::numeric_limits<double>::epsilon()));
             int y = (int)((t * image_pixel_size / h) * (1.0 + std::numeric_limits<double>::epsilon()));
             easyppm_set(&ray_trace_image, x, y, easyppm_rgb(255 * totalLight.getR(),
@@ -218,10 +203,6 @@ void RayTrace(const std::vector<Node>& scene, const std::vector<LightSrc>& lSour
                                                                     255 * totalLight.getB()));
         }
     }
-
-//    for (Node n : scene) {
-//        std::cout << n.shapeType << std::endl;
-//    }
 
     // Write PPM image to file
     easyppm_write(&ray_trace_image, "image.ppm");
