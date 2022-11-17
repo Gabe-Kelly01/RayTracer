@@ -9,6 +9,8 @@
 #include "Sphere.h"
 #include "easyppm.h"
 
+#define MAX_RECURSION_DEPTH 5
+
 struct Ray {
     Tuple point;
     Tuple direction;
@@ -26,6 +28,10 @@ struct LightSrc {
     Rgb iSpec;
     int specExp;
 };
+
+float calculateFresnel(const float &index, const Tuple &normalHit, const double &k) {
+    return 0.0;
+}
 
 bool rayHitsPlane(const Tuple& rayOriginPoint, const Tuple& rayDirectionVector, const Plane& plane, Intersection& intersect) {
     double t;
@@ -61,13 +67,15 @@ bool rayHitsSphere( const Tuple& rayOriginPoint, const Tuple& rayDirectionVector
         double t;
 
 
-        if (t_1 < 0 && t_2 < 0) {
-            return false;
-        } else if ((t_1 > 0) != (t_2 > 0)) {
-            t = std::max(t_1, t_2);
-        } else {
-            t = std::min(t_1, t_2);
+        if (t_1 < 0) {
+            t = t_2;
+
+            if (t_2 < 0) {
+                return false;
+            }
         }
+
+        t = t_1;
 
         intersect = Intersection((Shape *) &sphere, t);
         return true;
@@ -103,7 +111,7 @@ bool inShadow(Tuple& intersectPoint, Tuple& lightPoint, const std::vector<Node>&
     return t < dL;
 }
 
-Rgb Trace(Ray& ray, const std::vector<Node>& scene, const std::vector<LightSrc>& lSource) {
+Rgb Trace(Ray& ray, const std::vector<Node>& scene, const std::vector<LightSrc>& lSource, int recursion_depth) {
     // Declare intersection vector
     std::vector<Intersection> hits;
 
@@ -149,20 +157,32 @@ Rgb Trace(Ray& ray, const std::vector<Node>& scene, const std::vector<LightSrc>&
         }
     }
 
+    Rgb totalLight;
+    // Calculate for a reflective or transparent object
+    if ((curObj.materialType != 1) and recursion_depth < MAX_RECURSION_DEPTH) {
+        // Compute reflected ray
+        Tuple reflectDirection = ray.direction - (lightNormal * 2 * ray.direction.dot(lightNormal));
+        reflectDirection.normalize();
 
-    Rgb totalLight = Rgb();
-    for (LightSrc src : lSource) {
-        // Compute ambient light regardless, only compute specular and diffuse lighting if point is not in shadows
-        totalLight = totalLight + lightAmbient(curObj.rAmb, src.iAmb);
-        bool hasShadow = inShadow(intersectPoint, src.position, scene);
-        if (not hasShadow) {
-            totalLight = totalLight +
-                         lightDiffuse(curObj.rDiff, curObj.position, lightNormal, src.iDiff, src.position);
-            totalLight = totalLight +
-                         lightSpecular(curObj.rSpec, curObj.position, lightNormal, src.iSpec, src.position,
-                                       ray.point, src.specExp);
+        Tuple reflectOrigin = intersectPoint + (lightNormal * 0.001);
+        Ray reflectionRay = {reflectOrigin, reflectDirection};
+        totalLight = totalLight + Trace(reflectionRay, scene, lSource, recursion_depth + 1);
+    } else {
+        // Calculate for a matte object
+        for (LightSrc src : lSource) {
+            // Compute ambient light regardless, only compute specular and diffuse lighting if point is not in shadows
+            totalLight = totalLight + lightAmbient(curObj.rAmb, src.iAmb);
+            bool hasShadow = inShadow(intersectPoint, src.position, scene);
+            if (not hasShadow) {
+                totalLight = totalLight +
+                             lightDiffuse(curObj.rDiff, curObj.position, lightNormal, src.iDiff, src.position);
+                totalLight = totalLight +
+                             lightSpecular(curObj.rSpec, curObj.position, lightNormal, src.iSpec, src.position,
+                                           ray.point, src.specExp);
+            }
         }
     }
+
 
     return totalLight;
 }
@@ -193,7 +213,7 @@ void Render(const std::vector<Node>& scene, const std::vector<LightSrc>& lSource
             Tuple direction = P - cameraPoint;
             direction.normalize();
             Ray ray = {cameraPoint, direction};
-            Rgb totalLight = Trace(ray, scene, lSource);
+            Rgb totalLight = Trace(ray, scene, lSource, 0);
 
             // Shade pixel
             int x = (int)((s * image_pixel_size / w) * (1.0 + std::numeric_limits<double>::epsilon()));
@@ -211,12 +231,12 @@ void Render(const std::vector<Node>& scene, const std::vector<LightSrc>& lSource
 
 
 int main() {
-    Plane p1 = Plane(Tuple(0, -4, 20, 1), Tuple(-1, 0, -1), Rgb(1, 0, 0),
+    Plane p1 = Plane(Tuple(0, -4, 20, 1), Tuple(0, 0, -1), Rgb(1, 0, 0),
                      Rgb(1, 0, 0), Rgb(1, 0, 0));
     Node o1 = {&p1, p1.type};
 
-    Plane p2 = Plane(Tuple(0, -4, 20, 1), Tuple(1, 0, -1), Rgb(0, 0, 1),
-                     Rgb(0, 0, 1), Rgb(0, 0, 1));
+    Plane p2 = Plane(Tuple(0, -5, 20, 1), Tuple(0, 1, 0), Rgb(0, 0, 1),
+                     Rgb(0, 0, 0.5), Rgb(0, 0, 1));
     Node o2 = {&p2, p2.type};
 
     Sphere s1 = Sphere(Tuple(1.5, 1.5, 6, 1), 1, Rgb(0, 255, 0),
@@ -231,7 +251,15 @@ int main() {
                        Rgb(0.5,0,0.5), Rgb(0.5,0,0.5));
     Node o5 = {&s3, s3.type};
 
-    std::vector<Node> scene {o1, o2, o3, o4, o5};
+    Sphere s4 = Sphere(Tuple(-1.5, 1.5, 6, 1), 1, Rgb(0,0.5,0.5),
+                       Rgb(0,0.5,0.5), Rgb(0,0.5,0.5));
+    Node o6 = {&s4, s4.type};
+
+    Sphere s5 = Sphere(Tuple(2.0, -1.5, 14, 1), 2, Rgb(0.2,0.6,0.8),
+                       Rgb(0.2,0.6,0.8), Rgb(0.2,0.6,0.8));
+    Node o7 = {&s5, s5.type};
+
+    std::vector<Node> scene {o1, o2, o3, o4, o5, o6, o7};
 
     LightSrc l1 = {Tuple(3, 3, 6, 1),
                    Rgb(0.3, 0.3, 0.3),
