@@ -157,7 +157,7 @@ Rgb Trace(Ray& ray, const std::vector<Node>& scene, const std::vector<LightSrc>&
         }
     }
 
-    Rgb totalLight;
+    Rgb totalLight = Rgb();
     // Calculate for a reflective or transparent object
     if ((curObj.materialType != 1) and recursion_depth < MAX_RECURSION_DEPTH) {
         // Compute reflected ray
@@ -167,6 +167,10 @@ Rgb Trace(Ray& ray, const std::vector<Node>& scene, const std::vector<LightSrc>&
         Tuple reflectOrigin = intersectPoint + (lightNormal * 0.001);
         Ray reflectionRay = {reflectOrigin, reflectDirection};
         totalLight = totalLight + Trace(reflectionRay, scene, lSource, recursion_depth + 1);
+        if (curObj.materialType == 3) {
+            // Compute refraction bullshit
+            std::cout << "not implemented" << std::endl;
+        }
     } else {
         // Calculate for a matte object
         for (LightSrc src : lSource) {
@@ -186,6 +190,7 @@ Rgb Trace(Ray& ray, const std::vector<Node>& scene, const std::vector<LightSrc>&
 
     return totalLight;
 }
+#pragma clang diagnostic pop
 
 void Render(const std::vector<Node>& scene, const std::vector<LightSrc>& lSource) {
     double front_clip = 6.0;
