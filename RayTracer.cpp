@@ -96,19 +96,25 @@ bool inShadow(Tuple& intersectPoint, Tuple& lightPoint, const std::vector<Node>&
 
             if (rayHitsPlane(intersectPoint, intersectToLight, *obj, it)) {
                 t = it.tHit;
-                break;
+                
+                if (t < dL) {
+                    return true;
+                }
             }
         } else {
             auto obj = (Sphere *) n.shapePtr;
 
             if (rayHitsSphere(intersectPoint, intersectToLight, *obj, it)) {
                 t = it.tHit;
-                break;
+                
+                if (t < dL) {
+                    return true;
+                }
             }
         }
     }
 
-    return t < dL;
+    return false;
 }
 
 Rgb Trace(Ray& ray, const std::vector<Node>& scene, const std::vector<LightSrc>& lSource, int recursion_depth) {
