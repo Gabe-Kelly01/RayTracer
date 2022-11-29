@@ -6,7 +6,7 @@ CC	 = g++
 FLAGS	 = -g -c -Wall
 
 all: $(OBJS)
-	$(CC) -g $(OBJS) -o $(OUT) $(LFLAGS)
+	$(CC) -g $(OBJS) -go $(OUT) $(LFLAGS)
 
 run: $(OBJS)
 	$(CC) -g $(OBJS) -o $(OUT) $(LFLAGS)
