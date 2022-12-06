@@ -277,11 +277,11 @@ void Render(const std::vector<Node>& scene, const std::vector<LightSrc>& lSource
 
 
 int main() {
-    Plane p1 = Plane(Tuple(0, -4, 20, 1), Tuple(0, 0, -1), Rgb(1, 0, 0),
+    Plane p1 = Plane(Tuple(0, -4, 15, 1), Tuple(0, 0, -1), Rgb(1, 0, 0),
                      Rgb(1, 0, 0), Rgb(1, 0, 0));
     Node o1 = {&p1, p1.type};
 
-    Plane p2 = Plane(Tuple(0, -5, 20, 1), Tuple(0, 1, 0), Rgb(0, 0, 1),
+    Plane p2 = Plane(Tuple(0, -5, 15, 1), Tuple(0, 1, 0), Rgb(0, 0, 1),
                      Rgb(0, 0, 0.5), Rgb(0, 0, 1));
     Node o2 = {&p2, p2.type};
 
@@ -321,4 +321,29 @@ int main() {
     Render(scene, lights);
 
     return 0;
+}
+
+void GenerateWaveAnimation() {
+    LightSrc l1 = {Tuple(0, -3, 6, 1),
+                   Rgb(0.3, 0.3, 0.3),
+                   Rgb(0.5, 0.5, 0.5),
+                   Rgb(0.8, 0.8, 0.8), 2};
+    std::vector<LightSrc> lights {l1};
+
+    const double dMax = 3;
+    int numSpheres = 5;
+    int frames = 60;
+
+    double t = 0.0;
+    for (int fc = 0; fc <= frames; fc++) {
+        std::vector<Sphere> spheres;
+        for (int s = 0; s < numSpheres; s++) {
+            void();
+        }
+    }
+
+}
+
+double getHeight(double t, double dMax) {
+    return dMax - (dMax * sin(t));
 }
