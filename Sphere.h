@@ -5,7 +5,7 @@ class Sphere : public Shape {
     public:
         double radius;
 
-        Sphere(Tuple pos, double rad, Rgb diff,
+        Sphere(Tuple pos, double rad, float reflectCoef, Rgb diff,
                Rgb spec, Rgb amb);
 
 };

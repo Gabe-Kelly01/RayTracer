@@ -7,8 +7,7 @@
 class Shape {
     public:
         int type; // 1 indicates a plane, 2 is a sphere
-        int materialType; // 1 indicates matte, 2 is metallic, 3 is transparent
-        double k; // shininess factor if metallic, refractive index if transparent
+        float reflectiveness; // 1 indicates matte, >1 indicates reflective
         Tuple position;
         Rgb rDiff;
         Rgb rSpec;

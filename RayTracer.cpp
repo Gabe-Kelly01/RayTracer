@@ -145,6 +145,10 @@ Rgb Trace(Ray& ray, const std::vector<Node>& scene, const std::vector<LightSrc>&
 
     // Find the closest intersection, unpack shape and find point of intersection
     sort(hits.begin(), hits.end(), sortByHT);
+
+    if (hits.size() == 0) {
+        return Rgb();
+    }
     Intersection minHit = hits[0];
     Shape curObj = *minHit.obj;
     Tuple intersectPoint = ray.point + ray.direction * minHit.tHit;
@@ -163,36 +167,67 @@ Rgb Trace(Ray& ray, const std::vector<Node>& scene, const std::vector<LightSrc>&
         }
     }
 
-    Rgb totalLight = Rgb();
-    // Calculate for a reflective or transparent object
-    if ((curObj.materialType != 1) and recursion_depth < MAX_RECURSION_DEPTH) {
-        // Compute reflected ray
-        Tuple reflectDirection = ray.direction - (lightNormal * 2 * ray.direction.dot(lightNormal));
-        reflectDirection.normalize();
+    // Rgb totalLight = Rgb();
+    // // Calculate for a reflective or transparent object
+    // if ((curObj.reflectiveness != 1) and recursion_depth < MAX_RECURSION_DEPTH) {
+    //     // Compute reflected ray
+    //     Tuple reflectDirection = ray.direction - (lightNormal * 2 * ray.direction.dot(lightNormal));
+    //     reflectDirection.normalize();
 
-        Tuple reflectOrigin = intersectPoint + (lightNormal * 0.001);
-        Ray reflectionRay = {reflectOrigin, reflectDirection};
-        totalLight = totalLight + Trace(reflectionRay, scene, lSource, recursion_depth + 1);
-        if (curObj.materialType == 3) {
-            // Compute refraction bullshit
-            std::cout << "not implemented" << std::endl;
+    //     Tuple reflectOrigin = intersectPoint + (lightNormal * 0.001);
+    //     Ray reflectionRay = {reflectOrigin, reflectDirection};
+    //     totalLight = totalLight + (curObj.reflectiveness * Trace(reflectionRay, scene, lSource, recursion_depth + 1));
+    // } else {
+    //     // Calculate for a matte object
+    //     for (LightSrc src : lSource) {
+    //         // Compute ambient light regardless, only compute specular and diffuse lighting if point is not in shadows
+    //         totalLight = totalLight + lightAmbient(curObj.rAmb, src.iAmb);
+    //         bool hasShadow = inShadow(intersectPoint, src.position, scene);
+    //         if (not hasShadow) {
+    //             totalLight = totalLight +
+    //                          lightDiffuse(curObj.rDiff, curObj.position, lightNormal, src.iDiff, src.position);
+    //             totalLight = totalLight +
+    //                          lightSpecular(curObj.rSpec, curObj.position, lightNormal, src.iSpec, src.position,
+    //                                        ray.point, src.specExp);
+    //         }
+    //     }
+    // }
+
+    Rgb totalLight = Rgb();
+    for (LightSrc src : lSource) {
+
+        if ((curObj.reflectiveness != 1) and (recursion_depth < MAX_RECURSION_DEPTH)) {
+            // Compute reflected ray
+            Tuple reflectDirection = ray.direction + (lightNormal * 2 * ray.direction.dot(lightNormal));
+            reflectDirection.normalize();
+
+            Tuple reflectOrigin = intersectPoint + (lightNormal * 0.001);
+            Ray reflectionRay = {reflectOrigin, reflectDirection};
+            totalLight = totalLight + (curObj.reflectiveness * Trace(reflectionRay, scene, lSource, recursion_depth + 1));
         }
-    } else {
-        // Calculate for a matte object
-        for (LightSrc src : lSource) {
-            // Compute ambient light regardless, only compute specular and diffuse lighting if point is not in shadows
+        else {
             totalLight = totalLight + lightAmbient(curObj.rAmb, src.iAmb);
+            
             bool hasShadow = inShadow(intersectPoint, src.position, scene);
             if (not hasShadow) {
                 totalLight = totalLight +
-                             lightDiffuse(curObj.rDiff, curObj.position, lightNormal, src.iDiff, src.position);
+                            lightDiffuse(curObj.rDiff, curObj.position, lightNormal, src.iDiff, src.position);
                 totalLight = totalLight +
-                             lightSpecular(curObj.rSpec, curObj.position, lightNormal, src.iSpec, src.position,
-                                           ray.point, src.specExp);
+                            lightSpecular(curObj.rSpec, curObj.position, lightNormal, src.iSpec, src.position,
+                                            ray.point, src.specExp);
             }
         }
-    }
 
+        // if ((curObj.reflectiveness != 1) and (recursion_depth < MAX_RECURSION_DEPTH)) {
+        //     // Compute reflected ray
+        //     Tuple reflectDirection = ray.direction + (lightNormal * 2 * ray.direction.dot(lightNormal));
+        //     reflectDirection.normalize();
+
+        //     Tuple reflectOrigin = intersectPoint + (lightNormal * 0.001);
+        //     Ray reflectionRay = {reflectOrigin, reflectDirection};
+        //     totalLight = totalLight + (curObj.reflectiveness * Trace(reflectionRay, scene, lSource, recursion_depth + 1));
+        // }
+    }
 
     return totalLight;
 }
@@ -250,23 +285,23 @@ int main() {
                      Rgb(0, 0, 0.5), Rgb(0, 0, 1));
     Node o2 = {&p2, p2.type};
 
-    Sphere s1 = Sphere(Tuple(1.5, 1.5, 6, 1), 1, Rgb(0, 255, 0),
+    Sphere s1 = Sphere(Tuple(1.5, 1.5, 6, 1), 1, 1, Rgb(0, 1, 0),
                        Rgb(0, 1, 0), Rgb(0, 1, 0));
     Node o3 = {&s1, s1.type};
 
-    Sphere s2 = Sphere(Tuple(0, 1, 10, 1), 2, Rgb(0.8,0.6,0.8),
+    Sphere s2 = Sphere(Tuple(0, 1, 10, 1), 2, 0.4, Rgb(0.8,0.6,0.8),
                        Rgb(0.8,0.6,0.8), Rgb(0.8,0.6,0.8));
     Node o4 = {&s2, s2.type};
 
-    Sphere s3 = Sphere(Tuple(-1.5, -1.5, 6, 1), 1, Rgb(0.5,0,0.5),
+    Sphere s3 = Sphere(Tuple(-1.5, -1.5, 6, 1), 1, 1, Rgb(0.5,0,0.5),
                        Rgb(0.5,0,0.5), Rgb(0.5,0,0.5));
     Node o5 = {&s3, s3.type};
 
-    Sphere s4 = Sphere(Tuple(-1.5, 1.5, 6, 1), 1, Rgb(0,0.5,0.5),
+    Sphere s4 = Sphere(Tuple(-1.5, 1.5, 6, 1), 1, 1, Rgb(0,0.5,0.5),
                        Rgb(0,0.5,0.5), Rgb(0,0.5,0.5));
     Node o6 = {&s4, s4.type};
 
-    Sphere s5 = Sphere(Tuple(2.0, -1.5, 14, 1), 2, Rgb(0.2,0.6,0.8),
+    Sphere s5 = Sphere(Tuple(2.0, -1.5, 14, 1), 2, 1, Rgb(0.2,0.6,0.8),
                        Rgb(0.2,0.6,0.8), Rgb(0.2,0.6,0.8));
     Node o7 = {&s5, s5.type};
 
