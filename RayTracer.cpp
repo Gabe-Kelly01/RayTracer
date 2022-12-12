@@ -169,12 +169,12 @@ Rgb Trace(Ray &ray, const std::vector<Node> &scene, const std::vector<LightSrc> 
         hitNormal = intersectPoint - curObj.position;
         hitNormal.normalize();
 
-        if (ray.direction.dot(hitNormal) < 0) {
-            hitNormal.z *= -1;
-        }
-//        if ((ray.direction.dot(hitNormal) < 0) and( curObj.reflectiveness >= 1)) {
+//        if (ray.direction.dot(hitNormal) < 0) {
 //            hitNormal.z *= -1;
 //        }
+        if ((ray.direction.dot(hitNormal) < 0) and( curObj.reflectiveness >= 1)) {
+            hitNormal.z *= -1;
+        }
     }
 
     Rgb totalLight = Rgb();
@@ -182,7 +182,7 @@ Rgb Trace(Ray &ray, const std::vector<Node> &scene, const std::vector<LightSrc> 
         totalLight = totalLight + lightAmbient(curObj.rAmb, src.iAmb);
         bool hasShadow = inShadow(intersectPoint, src.position, scene);
 
-        if (not hasShadow) {
+        if (not hasShadow and curObj.reflectiveness >= 1) {
             totalLight = totalLight +
                          lightDiffuse(curObj.rDiff, curObj.position, hitNormal, src.iDiff, src.position);
             totalLight = totalLight +
@@ -193,7 +193,7 @@ Rgb Trace(Ray &ray, const std::vector<Node> &scene, const std::vector<LightSrc> 
 
     if ((curObj.reflectiveness < 1) and (recursion_depth < MAX_RECURSION_DEPTH)) {
         // Compute reflected ray
-        Tuple reflectDirection = ray.direction - 2 * ray.direction.dot(hitNormal) * hitNormal;
+        Tuple reflectDirection = -2 * ray.direction.dot(hitNormal) * hitNormal - ray.direction;
         reflectDirection.normalize();
 
         Tuple reflectOrigin = intersectPoint + (hitNormal * 0.001);
