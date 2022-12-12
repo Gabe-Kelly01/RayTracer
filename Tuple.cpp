@@ -64,7 +64,7 @@ void Tuple::add(const Tuple &otherTuple) {
     this->z += otherTuple.z;
 
     // Check if point-to-vector conversion is needed
-    if (this->isPoint() and otherTuple.isVector() or this->isVector() and otherTuple.isPoint() ) {
+    if ((this->isPoint() and otherTuple.isVector()) or (this->isVector() and otherTuple.isPoint()) ) {
         this->w = 1;
     }
 }
@@ -81,7 +81,7 @@ void Tuple::sub(const Tuple &otherTuple) {
     this->z -= otherTuple.z;
 
     // Handling vector-point conversion
-    if (this->isPoint() and otherTuple.isVector() or this->isVector() and otherTuple.isPoint()) {
+    if ((this->isPoint() and otherTuple.isVector()) or (this->isVector() and otherTuple.isPoint())) {
         this->w = 1;
     } else if (this->isPoint() and otherTuple.isPoint()) {
         this->w = 0;
