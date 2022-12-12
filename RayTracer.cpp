@@ -2,6 +2,7 @@
 #include <vector>
 #include <limits>
 #include <algorithm>
+#include <string>
 
 #include "Lighting.h"
 #include "Intersection.h"
@@ -204,7 +205,7 @@ Rgb Trace(Ray &ray, const std::vector<Node> &scene, const std::vector<LightSrc> 
     return totalLight;
 }
 
-void Render(const std::vector<Node> &scene, const std::vector<LightSrc> &lSource) {
+void Render(const std::vector<Node> &scene, const std::vector<LightSrc> &lSource, std::string &outputFileName) {
     double front_clip = 6.0;
     double w = 6.0;
     double h = 6.0;
@@ -242,7 +243,7 @@ void Render(const std::vector<Node> &scene, const std::vector<LightSrc> &lSource
     }
 
     // Write PPM image to file
-    easyppm_write(&ray_trace_image, "image.ppm");
+    easyppm_write(&ray_trace_image, outputFileName.c_str());
     easyppm_destroy(&ray_trace_image);
 }
 
@@ -289,7 +290,8 @@ int main() {
 
     std::vector<LightSrc> lights{l1, l2};
 
-    Render(scene, lights);
+    std::string fileName = "image.ppm";
+    Render(scene, lights, fileName);
 
     return 0;
 }
@@ -323,15 +325,17 @@ void GenerateWaveAnimation() {
     double t_max = 6.3;
 
     // Loop to create each frame
-    for (double t = 0.0; t <= t_max; t += (t_max / frames)) {
-        // Update the position of each sphere
+    for (int iter = 0; iter <= frames; iter++) {
+        // Calculate delta-value
+        double delta = iter * (t_max / frames);
         for (int i = 1; i <= spheres.size(); i++) {
-            spheres[i].shapePtr->position = spheres[i].shapePtr->position + Tuple(5 * cos(t + i),
-                                                                                  5 * sin(t + i),
-                                                                                  4 * cos(3 * (t + i)));
+            spheres[i].shapePtr->position = spheres[i].shapePtr->position + Tuple(5 * cos(delta + i),
+                                                                                  5 * sin(delta + i),
+                                                                                  4 * cos(3 * (delta + i)));
         }
 
-        Render(spheres, lights);
+        std::string fileName = "frame_X.ppm";
+        Render(spheres, lights, fileName);
     }
 
 }
