@@ -86,7 +86,7 @@ bool rayHitsSphere(const Tuple &rayOriginPoint, const Tuple &rayDirectionVector,
     }
 }
 
-bool inShadow(Tuple &intersectPoint, Tuple &lightPoint, const std::vector<Node> &scene) {
+bool inShadow(Tuple intersectPoint, Tuple &lightPoint, const std::vector<Node> &scene) {
     intersectPoint = intersectPoint + (0.001 * intersectPoint - lightPoint);
     Tuple intersectToLight = lightPoint - intersectPoint;
     double dL = intersectToLight.magnitude();
@@ -172,13 +172,16 @@ Rgb Trace(Ray &ray, const std::vector<Node> &scene, const std::vector<LightSrc> 
         if (ray.direction.dot(hitNormal) < 0) {
             hitNormal.z *= -1;
         }
+//        if ((ray.direction.dot(hitNormal) < 0) and( curObj.reflectiveness >= 1)) {
+//            hitNormal.z *= -1;
+//        }
     }
 
     Rgb totalLight = Rgb();
     for (LightSrc src: lSource) {
         totalLight = totalLight + lightAmbient(curObj.rAmb, src.iAmb);
-
         bool hasShadow = inShadow(intersectPoint, src.position, scene);
+
         if (not hasShadow) {
             totalLight = totalLight +
                          lightDiffuse(curObj.rDiff, curObj.position, hitNormal, src.iDiff, src.position);
@@ -190,12 +193,10 @@ Rgb Trace(Ray &ray, const std::vector<Node> &scene, const std::vector<LightSrc> 
 
     if ((curObj.reflectiveness < 1) and (recursion_depth < MAX_RECURSION_DEPTH)) {
         // Compute reflected ray
-        Tuple reflectDirection = ray.direction + (hitNormal * 2 * ray.direction.dot(hitNormal));
+        Tuple reflectDirection = ray.direction - 2 * ray.direction.dot(hitNormal) * hitNormal;
         reflectDirection.normalize();
 
         Tuple reflectOrigin = intersectPoint + (hitNormal * 0.001);
-        std::cout << "Intersection point: " << intersectPoint << std::endl;
-        std::cout << "Reflection origin point: " << reflectOrigin << std::endl;
         Ray reflectionRay = {reflectOrigin, reflectDirection};
         totalLight = totalLight + (curObj.reflectiveness * Trace(reflectionRay, scene, lSource, recursion_depth + 1));
     }
