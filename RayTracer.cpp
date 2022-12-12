@@ -335,6 +335,7 @@ void GenerateWaveAnimation() {
         }
 
         std::string fileName = "frame_X.ppm";
+        fileName.replace(6, 1, std::to_string(iter));
         Render(spheres, lights, fileName);
     }
 
