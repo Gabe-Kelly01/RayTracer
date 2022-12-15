@@ -173,7 +173,7 @@ Rgb Trace(Ray &ray, const std::vector<Node> &scene, const std::vector<LightSrc> 
 //        if (ray.direction.dot(hitNormal) < 0) {
 //            hitNormal.z *= -1;
 //        }
-        if ((ray.direction.dot(hitNormal) < 0) and( curObj.reflectiveness >= 1)) {
+        if ((ray.direction.dot(hitNormal) < 0) and (curObj.reflectiveness >= 1)) {
             hitNormal.z *= -1;
         }
     }
@@ -248,15 +248,62 @@ void Render(const std::vector<Node> &scene, const std::vector<LightSrc> &lSource
 }
 
 
-int main() {
-//    Plane p1 = Plane(Tuple(0, -4, 15, 1), Tuple(0, 0, -1), Rgb(1, 0, 0),
-//                     Rgb(1, 0, 0), Rgb(1, 0, 0));
-//    Node o1 = {&p1, p1.type};
-//
-//    Plane p2 = Plane(Tuple(0, -5, 15, 1), Tuple(0, 1, 0), Rgb(0, 0, 1),
-//                     Rgb(0, 0, 0.5), Rgb(0, 0, 1));
-//    Node o2 = {&p2, p2.type};
+void GenerateWaveAnimation() {
+    LightSrc l1 = {Tuple(3, 3, 6, 1),
+                   Rgb(0.3, 0.3, 0.3),
+                   Rgb(0.5, 0.5, 0.5),
+                   Rgb(0.8, 0.8, 0.8), 2};
+    LightSrc l2 = {Tuple(-3, 3, 6, 1),
+                   Rgb(0.3, 0.3, 0.3),
+                   Rgb(0.2, 0.2, 0.2),
+                   Rgb(0.4, 0.4, 0.4), 1};
+    const std::vector<LightSrc> lights{l1, l2};
 
+    Sphere s1 = Sphere(Tuple(0, 1, 30, 1), 3, 0.4, Rgb(0.8, 0.6, 0.8),
+                       Rgb(0.8, 0.6, 0.8), Rgb(0.8, 0.6, 0.8));
+    Node o1 = {&s1, s1.type};
+
+    Sphere s2 = Sphere(Tuple(-2.5, 5, 20, 1), 1, 1, Rgb(0.5, 0, 0.5),
+                       Rgb(0.5, 0, 0.5), Rgb(0.5, 0, 0.5));
+    Node o2 = {&s2, s2.type};
+
+    Sphere s3 = Sphere(Tuple(2.5, -5, 20, 1), 1, 1, Rgb(0, 0.5, 0.5),
+                       Rgb(0, 0.5, 0.5), Rgb(0, 0.5, 0.5));
+    Node o3 = {&s3, s3.type};
+
+    Sphere s4 = Sphere(Tuple(5.0, 5.0, 25, 1), 2, 1, Rgb(0.2, 0.6, 0.8),
+                       Rgb(0.2, 0.6, 0.8), Rgb(0.2, 0.6, 0.8));
+    Node o4 = {&s4, s4.type};
+
+    std::vector<Node> spheres{o1, o2, o3, o4};
+
+    int frames = 60;
+    double t_max = 6.3;
+
+    // Loop to create each frame
+    for (int iter = 0; iter <= frames; iter++) {
+        // Calculate delta-value
+        double delta = iter * (t_max / frames);
+        for (int i = 1; i <= spheres.size() - 1; i++) {
+            Tuple displacement = Tuple(4 * cos(delta + i),
+                                       16 * sin(delta + i), 3);
+            displacement.normalize();
+            spheres[i].shapePtr->position = spheres[i].shapePtr->position + displacement;
+
+        }
+
+        std::string fileName = "animation_frames/frame_X.ppm";
+        size_t replace_index = "animation_frames/frame_X.ppm"sv.find('X');
+        fileName.replace(replace_index, 1, std::to_string(iter));
+        Render(spheres, lights, fileName);
+        std::cout << "Rendering frame..." << std::endl;
+    }
+
+    std::cout << "Done!" << std::endl;
+
+}
+
+int main() {
     Sphere s1 = Sphere(Tuple(1.5, 1.5, 6, 1), 1, 1, Rgb(0, 1, 0),
                        Rgb(0, 1, 0), Rgb(0, 1, 0));
     Node o3 = {&s1, s1.type};
@@ -293,50 +340,7 @@ int main() {
     std::string fileName = "image.ppm";
     Render(scene, lights, fileName);
 
+//    GenerateWaveAnimation();
+
     return 0;
-}
-
-void GenerateWaveAnimation() {
-    const LightSrc l1 = {Tuple(0, -3, 6, 1),
-                   Rgb(0.3, 0.3, 0.3),
-                   Rgb(0.5, 0.5, 0.5),
-                   Rgb(0.8, 0.8, 0.8), 2};
-    const std::vector<LightSrc> lights{l1};
-
-    Sphere s1 = Sphere(Tuple(0, 1, 10, 1), 2, 0.4, Rgb(0.8, 0.6, 0.8),
-                       Rgb(0.8, 0.6, 0.8), Rgb(0.8, 0.6, 0.8));
-    Node o1 = {&s1, s1.type};
-
-    Sphere s2 = Sphere(Tuple(-2.5, 5, 10, 1), 1, 1, Rgb(0.5, 0, 0.5),
-                       Rgb(0.5, 0, 0.5), Rgb(0.5, 0, 0.5));
-    Node o2 = {&s2, s2.type};
-
-    Sphere s3 = Sphere(Tuple(2.5, -5, 10, 1), 1, 1, Rgb(0, 0.5, 0.5),
-                       Rgb(0, 0.5, 0.5), Rgb(0, 0.5, 0.5));
-    Node o3 = {&s3, s3.type};
-
-    Sphere s4 = Sphere(Tuple(5.0, 5.0, 15, 1), 2, 1, Rgb(0.2, 0.6, 0.8),
-                       Rgb(0.2, 0.6, 0.8), Rgb(0.2, 0.6, 0.8));
-    Node o4 = {&s4, s4.type};
-
-    std::vector<Node> spheres{o1, o2, o3, o4};
-
-    int frames = 60;
-    double t_max = 6.3;
-
-    // Loop to create each frame
-    for (int iter = 0; iter <= frames; iter++) {
-        // Calculate delta-value
-        double delta = iter * (t_max / frames);
-        for (int i = 1; i <= spheres.size(); i++) {
-            spheres[i].shapePtr->position = spheres[i].shapePtr->position + Tuple(5 * cos(delta + i),
-                                                                                  5 * sin(delta + i),
-                                                                                  4 * cos(3 * (delta + i)));
-        }
-
-        std::string fileName = "frame_X.ppm";
-        fileName.replace(6, 1, std::to_string(iter));
-        Render(spheres, lights, fileName);
-    }
-
 }
